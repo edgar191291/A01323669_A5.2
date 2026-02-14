@@ -1,0 +1,4 @@
+SALES RESULTS
+-------------------------
+TOTAL: 2481.86
+TIME ELAPSED (SECONDS): 0.000945
