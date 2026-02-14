@@ -1,0 +1,7 @@
+﻿computeSales.py:110:80: E501 line too long (80 > 79 characters)
+computeSales.py:116:80: E501 line too long (97 > 79 characters)
+computeSales.py:123:80: E501 line too long (85 > 79 characters)
+computeSales.py:143:80: E501 line too long (83 > 79 characters)
+computeSales.py:147:80: E501 line too long (91 > 79 characters)
+computeSales.py:171:80: E501 line too long (80 > 79 characters)
+computeSales.py:200:80: E501 line too long (80 > 79 characters)

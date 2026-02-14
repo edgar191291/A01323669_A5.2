@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# pylint: disable=invalid-name
 """
 computeSales.py
 
@@ -48,30 +49,30 @@ def load_json_file(file_path: str) -> Any:
 
 def parse_catalogue(catalogue_data: Any) -> dict[str, float]:
     """
-    Parse price catalogue JSON data into a dict: {product_name: price}.
+    Parse catalogue JSON into a dict: {product_name: price}.
     Invalid entries are skipped but reported.
     """
     prices: dict[str, float] = {}
 
     if not isinstance(catalogue_data, list):
-        raise ValueError("Price catalogue JSON must be a list of products.")
+        raise ValueError("Catalogue JSON must be a list of products.")
 
     for idx, item in enumerate(catalogue_data, start=1):
         if not isinstance(item, dict):
-            print_error(f"Catalogue item #{idx} is not an object. Skipped.")
+            print_error(f"Catalogue item #{idx}: not an object. Skipped.")
             continue
 
         title = item.get("title")
         price = item.get("price")
 
         if not isinstance(title, str) or not title.strip():
-            print_error(f"Catalogue item #{idx} has invalid 'title'. Skipped.")
+            print_error(f"Catalogue item #{idx}: invalid title. Skipped.")
             continue
 
         try:
             price_value = float(price)
         except (TypeError, ValueError):
-            print_error(f"Catalogue item #{idx} has invalid 'price'. Skipped.")
+            print_error(f"Catalogue item #{idx}: invalid price. Skipped.")
             continue
 
         prices[title] = price_value
@@ -82,45 +83,49 @@ def parse_catalogue(catalogue_data: Any) -> dict[str, float]:
 def safe_sale_lines(sales_data: Any) -> list[SaleLine]:
     """
     Parse sales JSON into a flat list of SaleLine(product, quantity).
+
     Supports either:
-      - a list of dicts with keys 'Product'/'Quantity'
-      - a list of sales, each containing a list under keys like 'items'
+      - list of dicts with keys 'Product'/'Quantity'
+      - list of sales containing a list under keys like 'items'
+
     Any invalid line is reported and skipped.
     """
     if not isinstance(sales_data, list):
-        raise ValueError("Sales record JSON must be a list.")
+        raise ValueError("Sales JSON must be a list.")
 
     lines: list[SaleLine] = []
 
     def parse_line(obj: Any, line_no: str) -> None:
+        """Parse one sale line; append if valid, else report and skip."""
         if not isinstance(obj, dict):
-            print_error(f"Sale line {line_no} is not an object. Skipped.")
+            print_error(f"Sale line {line_no}: not an object. Skipped.")
             return
 
         product = obj.get("Product")
         quantity = obj.get("Quantity")
 
         if not isinstance(product, str) or not product.strip():
-            print_error(f"Sale line {line_no} has invalid 'Product'. Skipped.")
+            print_error(f"Sale line {line_no}: invalid Product. Skipped.")
             return
 
         try:
             qty_value = float(quantity)
         except (TypeError, ValueError):
-            print_error(f"Sale line {line_no} has invalid 'Quantity'. Skipped.")
+            print_error(f"Sale line {line_no}: invalid Quantity. Skipped.")
             return
 
         lines.append(SaleLine(product=product, quantity=qty_value))
 
-    # Try to detect a "flat list of lines"
-    is_flat = all(isinstance(x, dict) and "Product" in x and "Quantity" in x for x in sales_data)
+    is_flat = all(
+        isinstance(x, dict) and "Product" in x and "Quantity" in x
+        for x in sales_data
+    )
 
     if is_flat:
         for i, obj in enumerate(sales_data, start=1):
             parse_line(obj, str(i))
         return lines
 
-    # Otherwise, attempt nested structure: list of sales, each with iterable of items
     for sale_idx, sale_obj in enumerate(sales_data, start=1):
         if isinstance(sale_obj, dict):
             items = (
@@ -129,25 +134,31 @@ def safe_sale_lines(sales_data: Any) -> list[SaleLine]:
                 or sale_obj.get("sale")
                 or sale_obj.get("Sale")
             )
+
             if isinstance(items, list):
                 for item_idx, item in enumerate(items, start=1):
                     parse_line(item, f"{sale_idx}.{item_idx}")
                 continue
 
-        print_error(f"Sale #{sale_idx} has unexpected structure. Skipped.")
+        print_error(f"Sale #{sale_idx}: unexpected structure. Skipped.")
 
     return lines
 
 
 def compute_total(prices: dict[str, float], lines: list[SaleLine]) -> float:
-    """Compute total cost using catalogue prices; missing products are reported."""
+    """Compute total cost; missing products are reported and skipped."""
     total = 0.0
+
     for idx, line in enumerate(lines, start=1):
-        if line.product not in prices:
-            print_error(f"Unknown product in sale line #{idx}: '{line.product}'. Skipped.")
+        price = prices.get(line.product)
+        if price is None:
+            print_error(
+                f"Unknown product at sale line #{idx}: "
+                f"'{line.product}'. Skipped."
+            )
             continue
 
-        total += prices[line.product] * line.quantity
+        total += price * line.quantity
 
     return total
 
@@ -163,12 +174,14 @@ def format_results(total: float, elapsed_seconds: float) -> str:
 
 
 def main(argv: list[str]) -> int:
+    """Program entry point: validates args, computes total, writes results."""
     start = time.perf_counter()
 
     if len(argv) != 3:
         print_error(
             "Invalid arguments.\n"
-            "Usage: python computeSales.py priceCatalogue.json salesRecord.json"
+            "Usage: python computeSales.py priceCatalogue.json "
+            "salesRecord.json"
         )
         return 2
 
@@ -181,7 +194,6 @@ def main(argv: list[str]) -> int:
 
         prices = parse_catalogue(catalogue_data)
         lines = safe_sale_lines(sales_data)
-
         total = compute_total(prices, lines)
 
     except (FileNotFoundError, ValueError) as exc:
@@ -191,13 +203,12 @@ def main(argv: list[str]) -> int:
         elapsed = time.perf_counter() - start
 
     output = format_results(total, elapsed)
-
     print(output)
 
     try:
         Path(RESULTS_FILENAME).write_text(output, encoding="utf-8")
     except OSError as exc:
-        print_error(f"Could not write results file '{RESULTS_FILENAME}': {exc}")
+        print_error(f"Could not write '{RESULTS_FILENAME}': {exc}")
         return 1
 
     return 0
